@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import { Box, Text, useInput, useApp, useStdout } from 'ink';
 import type { Entry, SortKey, DeleteSummary } from '../types.js';
 import { Row } from './Row.js';
 import { SummaryBar } from './SummaryBar.js';
@@ -37,6 +37,7 @@ function sortEntries(entries: Entry[], key: SortKey): Entry[] {
 
 export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelete, onExit }) => {
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const [screen, setScreen] = useState<Screen>('list');
   const [sortKey, setSortKey] = useState<SortKey>('size');
   const [cursor, setCursor] = useState(0);
@@ -47,6 +48,22 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelet
   const sorted = sortEntries(entries, sortKey);
   const maxSize = Math.max(1, ...entries.map(e => e.sizeBytes ?? 0));
   const selectable = sorted.filter(e => !e.isSymlink);
+
+  // Viewport scrolling: keep the cursor visible within a fixed-height window.
+  // Reserve lines for: header (1) + summary (3) + footer (1) + a margin (1) = 6.
+  const RESERVED = 6;
+  const termRows = stdout?.rows && stdout.rows > 0 ? stdout.rows : 24;
+  const viewportRows = Math.max(3, termRows - RESERVED);
+  const needScroll = sorted.length > viewportRows;
+  // Window start so that cursor stays inside [start, start+viewportRows-1].
+  const winStart = needScroll
+    ? Math.min(
+        Math.max(0, cursor - Math.floor(viewportRows / 2)),
+        Math.max(0, sorted.length - viewportRows),
+      )
+    : 0;
+  const winEnd = Math.min(sorted.length, winStart + viewportRows);
+  const visible = needScroll ? sorted.slice(winStart, winEnd) : sorted;
 
   const safeExit = useCallback(() => {
     exit();
@@ -85,6 +102,8 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelet
     }
     if (key.downArrow) { setCursor(c => Math.min(c + 1, sorted.length - 1)); return; }
     if (key.upArrow) { setCursor(c => Math.max(c - 1, 0)); return; }
+    if (input === 'g') { setCursor(0); return; }          // g: jump to top
+    if (input === 'G') { setCursor(sorted.length - 1); return; } // G: jump to bottom
     if (key.return) {
       if (selected.size > 0) setScreen('confirm');
       return;
@@ -141,17 +160,24 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelet
   return (
     <Box flexDirection="column">
       <Text bold>clean-node-modules — sort: {SORT_LABEL[sortKey]} (s to cycle)</Text>
-      {sorted.map((e, i) => (
-        <Row
-          key={e.absPath}
-          entry={e}
-          selected={selected.has(e.absPath)}
-          cursor={i === cursor}
-          maxSize={maxSize}
-        />
-      ))}
+      {needScroll && winStart > 0 && <Text dimColor>  ↑ {winStart} more above</Text>}
+      {visible.map((e, i) => {
+        const realIndex = winStart + i;
+        return (
+          <Row
+            key={e.absPath}
+            entry={e}
+            selected={selected.has(e.absPath)}
+            cursor={realIndex === cursor}
+            maxSize={maxSize}
+          />
+        );
+      })}
+      {needScroll && winEnd < sorted.length && (
+        <Text dimColor>  ↓ {sorted.length - winEnd} more below</Text>
+      )}
       <SummaryBar entries={sorted} selected={selected} />
-      <Text dimColor>up/down move · space select · a all · s sort · enter delete · q quit</Text>
+      <Text dimColor>↑↓ move · space select · a all · s sort · g/G top/bottom · enter delete · q quit</Text>
     </Box>
   );
 };

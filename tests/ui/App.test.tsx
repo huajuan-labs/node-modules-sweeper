@@ -115,4 +115,36 @@ describe('App', () => {
     stdin.write('q'); await flush();
     expect(onExit).toHaveBeenCalled();
   });
+
+  it('G jumps to bottom; g jumps back to top', async () => {
+    // 40 entries — exceeds a 24-row terminal so scrolling/viewport kicks in.
+    const many: Entry[] = Array.from({ length: 40 }, (_, i) =>
+      mkEntry(`p/item${i}`, 10 * (40 - i), i),
+    );
+    const { stdin, lastFrame } = render(
+      <App entries={many} mode="hard" onDelete={vi.fn()} onExit={vi.fn()} />,
+    );
+    // default cursor at item0 (top, size desc)
+    expect(lastFrame() ?? '').toContain('p/item0');
+    stdin.write('G'); await flush(); // jump to bottom (item39)
+    const bottomFrame = lastFrame() ?? '';
+    expect(bottomFrame).toContain('p/item39');
+    expect(bottomFrame).toContain('↑'); // scroll indicator: items above
+    stdin.write('g'); await flush(); // back to top
+    expect(lastFrame() ?? '').toContain('p/item0');
+  });
+
+  it('down arrow scrolls the viewport without jumping past content', async () => {
+    const many: Entry[] = Array.from({ length: 40 }, (_, i) =>
+      mkEntry(`p/item${i}`, 10 * (40 - i), i),
+    );
+    const { stdin, lastFrame } = render(
+      <App entries={many} mode="hard" onDelete={vi.fn()} onExit={vi.fn()} />,
+    );
+    // Press down 20 times — cursor should be on item20, still visible (no jump to bottom).
+    for (let i = 0; i < 20; i++) { stdin.write(DOWN); await flush(); }
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('p/item20'); // cursor item visible
+    expect(frame).not.toContain('p/item39'); // bottom NOT yet reached
+  });
 });
