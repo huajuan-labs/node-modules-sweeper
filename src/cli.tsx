@@ -7,6 +7,7 @@ import { deleteEntries } from './delete.js';
 import { progressLine, progressDone } from './progress.js';
 import { formatBytes } from './format.js';
 import { App } from './ui/App.js';
+import { Browser } from './ui/Browser.js';
 import type { Entry } from './types.js';
 import { resolve, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
@@ -77,61 +78,83 @@ async function confirmWideRoot(root: string): Promise<boolean> {
   return true;
 }
 
+/** Run the scan pipeline + render the results (TUI or table). */
+async function runAndShow(scanRoot: string, minDays: number, mode: 'hard' | 'trash'): Promise<void> {
+  if (!(await confirmWideRoot(scanRoot))) {
+    process.exit(0);
+  }
+
+  let result: RunScanResult;
+  try {
+    result = await runScan({
+      root: scanRoot,
+      minDays,
+      onDiscover: (_abs, count) => progressLine(`Scanning… found ${count}`),
+    });
+  } catch (err) {
+    process.stderr.write(`Error: ${(err as Error).message}\n`);
+    process.exit(1);
+  }
+
+  if (result.permissionSkipped > 0) {
+    process.stderr.write(
+      `${result.permissionSkipped} director${result.permissionSkipped === 1 ? 'y' : 'ies'} skipped due to permissions.\n`,
+    );
+  }
+
+  if (result.entries.length === 0) {
+    process.stdout.write('No node_modules found.\n');
+    return;
+  }
+
+  // Non-TTY: table only, no deletion.
+  if (!process.stdout.isTTY) {
+    process.stdout.write(renderTable(result.entries) + '\n');
+    return;
+  }
+
+  // TTY: ink TUI.
+  const { unmount, waitUntilExit } = render(
+    <App
+      entries={result.entries}
+      mode={mode}
+      onDelete={async (toDelete, m) => deleteEntries(toDelete, { mode: m })}
+      onExit={() => unmount()}
+    />,
+    { exitOnCtrlC: false },
+  );
+  await waitUntilExit();
+}
+
 export async function main(argv: string[]): Promise<void> {
   const program = new Command();
   program
     .name('clean-node-modules')
-    .argument('[scan-root]', 'directory to scan', '.')
+    .argument('[scan-root]', 'directory to scan')
     .option('--trash', 'move to trash instead of hard delete')
     .option('--min-days <n>', 'only show entries idle >= n days', '0')
-    .action(async (scanRoot: string, opts: { trash?: boolean; minDays: string }) => {
+    .action(async (scanRoot: string | undefined, opts: { trash?: boolean; minDays: string }) => {
       const minDays = parseInt(opts.minDays, 10) || 0;
       const mode: 'hard' | 'trash' = opts.trash ? 'trash' : 'hard';
 
-      if (!(await confirmWideRoot(scanRoot))) {
-        process.exit(0);
-      }
-
-      let result: RunScanResult;
-      try {
-        result = await runScan({
-          root: scanRoot,
-          minDays,
-          onDiscover: (_abs, count) => progressLine(`Scanning… found ${count}`),
-        });
-      } catch (err) {
-        process.stderr.write(`Error: ${(err as Error).message}\n`);
-        process.exit(1);
-      }
-
-      if (result.permissionSkipped > 0) {
-        process.stderr.write(
-          `${result.permissionSkipped} director${result.permissionSkipped === 1 ? 'y' : 'ies'} skipped due to permissions.\n`,
+      // No scan-root given AND we're in a TTY: show the directory browser.
+      if (scanRoot === undefined && process.stdout.isTTY) {
+        const { unmount, waitUntilExit } = render(
+          <Browser
+            onSelect={(d) => {
+              unmount();
+              void runAndShow(d, minDays, mode);
+            }}
+            onExit={() => unmount()}
+          />,
+          { exitOnCtrlC: false },
         );
-      }
-
-      if (result.entries.length === 0) {
-        process.stdout.write('No node_modules found.\n');
+        await waitUntilExit();
         return;
       }
 
-      // Non-TTY: table only, no deletion.
-      if (!process.stdout.isTTY) {
-        process.stdout.write(renderTable(result.entries) + '\n');
-        return;
-      }
-
-      // TTY: ink TUI.
-      const { unmount, waitUntilExit } = render(
-        <App
-          entries={result.entries}
-          mode={mode}
-          onDelete={async (toDelete, m) => deleteEntries(toDelete, { mode: m })}
-          onExit={() => unmount()}
-        />,
-        { exitOnCtrlC: false },
-      );
-      await waitUntilExit();
+      const root = scanRoot ?? '.';
+      await runAndShow(root, minDays, mode);
     });
 
   await program.parseAsync(argv, { from: 'user' });
