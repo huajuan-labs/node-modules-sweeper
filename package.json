@@ -1,0 +1,32 @@
+{
+  "name": "clean-node-modules",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Scan and selectively clean node_modules directories",
+  "bin": {
+    "clean-node-modules": "bin/clean-node-modules.js"
+  },
+  "exports": "./dist/cli.js",
+  "files": ["dist", "bin"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "ink": "^7.1.1",
+    "react": "^19.2.8",
+    "trash": "^10.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "ink-testing-library": "^4.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,157 @@
+import React, { useState, useCallback } from 'react';
+import { Box, Text, useInput, useApp } from 'ink';
+import type { Entry, SortKey, DeleteSummary } from '../types.js';
+import { Row } from './Row.js';
+import { SummaryBar } from './SummaryBar.js';
+import { ConfirmDialog } from './ConfirmDialog.js';
+import { DeletingView } from './DeletingView.js';
+
+type Screen = 'list' | 'confirm' | 'deleting' | 'result';
+
+export interface AppProps {
+  entries: Entry[];
+  mode: 'hard' | 'trash';
+  /** Delete the given entries; resolves a summary. */
+  onDelete: (entries: Entry[], mode: 'hard' | 'trash') => Promise<DeleteSummary>;
+  onExit: () => void;
+}
+
+const SORT_LABEL: Record<SortKey, string> = { size: 'size', idle: 'idle', path: 'path' };
+const NEXT_SORT: Record<SortKey, SortKey> = { size: 'idle', idle: 'path', path: 'size' };
+
+function sortEntries(entries: Entry[], key: SortKey): Entry[] {
+  const copy = [...entries];
+  switch (key) {
+    case 'size':
+      copy.sort((a, b) => (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0));
+      break;
+    case 'idle':
+      copy.sort((a, b) => (b.idleDays ?? 0) - (a.idleDays ?? 0));
+      break;
+    case 'path':
+      copy.sort((a, b) => a.relPath.localeCompare(b.relPath));
+      break;
+  }
+  return copy;
+}
+
+export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelete, onExit }) => {
+  const { exit } = useApp();
+  const [screen, setScreen] = useState<Screen>('list');
+  const [sortKey, setSortKey] = useState<SortKey>('size');
+  const [cursor, setCursor] = useState(0);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [entries, setEntries] = useState<Entry[]>(initialEntries);
+  const [deleteSummary, setDeleteSummary] = useState<DeleteSummary | null>(null);
+
+  const sorted = sortEntries(entries, sortKey);
+  const maxSize = Math.max(1, ...entries.map(e => e.sizeBytes ?? 0));
+  const selectable = sorted.filter(e => !e.isSymlink);
+
+  const safeExit = useCallback(() => {
+    exit();
+    onExit();
+  }, [exit, onExit]);
+
+  // Single useInput handles all screens (hooks must run unconditionally).
+  useInput((input, key) => {
+    if (screen === 'result') { setScreen('list'); return; }
+    if (screen !== 'list') return;
+    if (input === 'q' || (key.ctrl && input === 'c')) { safeExit(); return; }
+    if (input === 's') { setSortKey(k => NEXT_SORT[k]); return; }
+    if (input === 'a') {
+      setSelected(prev => {
+        const allSelected = selectable.every(e => prev.has(e.absPath));
+        const next = new Set(prev);
+        for (const e of selectable) {
+          if (allSelected) next.delete(e.absPath);
+          else next.add(e.absPath);
+        }
+        return next;
+      });
+      return;
+    }
+    if (input === ' ') {
+      const e = sorted[cursor];
+      if (e && !e.isSymlink) {
+        setSelected(prev => {
+          const next = new Set(prev);
+          if (next.has(e.absPath)) next.delete(e.absPath);
+          else next.add(e.absPath);
+          return next;
+        });
+      }
+      return;
+    }
+    if (key.downArrow) { setCursor(c => Math.min(c + 1, sorted.length - 1)); return; }
+    if (key.upArrow) { setCursor(c => Math.max(c - 1, 0)); return; }
+    if (key.return) {
+      if (selected.size > 0) setScreen('confirm');
+      return;
+    }
+  });
+
+  const doDelete = useCallback(async () => {
+    setScreen('deleting');
+    const toDelete = entries.filter(e => selected.has(e.absPath));
+    const summary = await onDelete(toDelete, mode);
+    setDeleteSummary(summary);
+    const removed = new Set(summary.ok.map(o => o.entry.absPath));
+    setEntries(prev => prev.filter(e => !removed.has(e.absPath)));
+    setSelected(new Set());
+    setCursor(0);
+    setScreen('result');
+  }, [entries, selected, mode, onDelete]);
+
+  if (screen === 'confirm') {
+    const sel = entries.filter(e => selected.has(e.absPath));
+    const bytes = sel.reduce((s, e) => s + (e.sizeBytes ?? 0), 0);
+    return (
+      <ConfirmDialog
+        count={sel.length}
+        bytes={bytes}
+        mode={mode}
+        onConfirm={doDelete}
+        onCancel={() => setScreen('list')}
+      />
+    );
+  }
+
+  if (screen === 'deleting' || screen === 'result') {
+    const outcomes = deleteSummary
+      ? [...deleteSummary.ok, ...deleteSummary.failed]
+      : [];
+    return (
+      <Box flexDirection="column">
+        <DeletingView
+          total={outcomes.length || selected.size}
+          current={null}
+          outcomes={outcomes}
+        />
+        {screen === 'result' && (
+          <Box marginTop={1}>
+            <Text dimColor>Press any key to return to list…</Text>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
+  // list screen
+  return (
+    <Box flexDirection="column">
+      <Text bold>clean-node-modules — sort: {SORT_LABEL[sortKey]} (s to cycle)</Text>
+      {sorted.map((e, i) => (
+        <Row
+          key={e.absPath}
+          entry={e}
+          selected={selected.has(e.absPath)}
+          cursor={i === cursor}
+          maxSize={maxSize}
+        />
+      ))}
+      <SummaryBar entries={sorted} selected={selected} />
+      <Text dimColor>up/down move · space select · a all · s sort · enter delete · q quit</Text>
+    </Box>
+  );
+};
