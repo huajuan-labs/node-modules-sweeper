@@ -7,6 +7,15 @@ let root: string;
 beforeEach(async () => { root = await mkdtemp(join(tmpdir(), 'cnm-cli-')); });
 afterEach(async () => { await rm(root, { recursive: true, force: true }); });
 
+describe('installedVersion', () => {
+  it('reads a version string', async () => {
+    const { installedVersion } = await import('../src/cli.js');
+    const v = installedVersion();
+    expect(typeof v).toBe('string');
+    expect(v.length).toBeGreaterThan(0);
+  });
+});
+
 describe('runScan', () => {
   it('returns enriched entries with size and idleDays', async () => {
     const { runScan } = await import('../src/cli.js');

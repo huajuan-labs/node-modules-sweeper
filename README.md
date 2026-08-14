@@ -31,6 +31,9 @@ nms ~/my_code --hard
 
 # Only show node_modules idle for 90+ days
 nms ~/my_code --min-days 90
+
+# Update to the latest version from npm
+nms --update
 ```
 
 ### Flags
@@ -42,6 +45,7 @@ nms [scan-root] [options]
   --hard           hard delete (irreversible) — default is trash (recoverable)
   --trash          force trash mode (default, kept for clarity)
   --min-days <n>   only show entries idle for >= n days
+  -u, --update     update node-modules-sweeper to the latest version from npm
   -h, --help       show help
 ```
 
@@ -96,7 +100,7 @@ nms ~/my_code | sort -h
 git clone https://github.com/huajuan-labs/node-modules-sweeper.git
 cd node-modules-sweeper
 npm install
-npm test        # 79 tests, vitest
+npm test        # 80 tests, vitest
 npm run build   # tsc -> dist/
 node bin/nms.js .
 ```

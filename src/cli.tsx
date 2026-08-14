@@ -9,7 +9,14 @@ import { formatBytes } from './format.js';
 import { App } from './ui/App.js';
 import { Browser } from './ui/Browser.js';
 import type { Entry } from './types.js';
-import { resolve, isAbsolute } from 'node:path';
+import { resolve, isAbsolute, dirname, join } from 'node:path';
+import { execFile, spawnSync } from 'node:child_process';
+import { promisify } from 'node:util';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const execFileP = promisify(execFile);
+const PKG_NAME = 'node-modules-sweeper';
 
 export interface RunScanResult {
   entries: Entry[];
@@ -137,6 +144,49 @@ async function runAndShow(scanRoot: string, minDays: number, mode: 'hard' | 'tra
   return changeDir;
 }
 
+/** Check the latest published version of this package on npm. Returns null on error. */
+async function latestVersion(): Promise<string | null> {
+  try {
+    const { stdout } = await execFileP('npm', ['view', PKG_NAME, 'version'], { maxBuffer: 1024 });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Read the installed version from package.json. */
+export function installedVersion(): string {
+  // dist/cli.js -> ../../package.json
+  const file = join(dirname(dirname(fileURLToPath(import.meta.url))), 'package.json');
+  try {
+    return JSON.parse(readFileSync(file, 'utf8')).version ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function selfUpdate(): Promise<void> {
+  const current = installedVersion();
+  process.stdout.write(`Current: ${PKG_NAME}@${current}\nChecking npm for latest…\n`);
+  const latest = await latestVersion();
+  if (!latest) {
+    process.stderr.write('Could not reach npm registry. Check your network and try again.\n');
+    process.exit(1);
+  }
+  if (latest === current) {
+    process.stdout.write(`Already up to date: ${PKG_NAME}@${current}\n`);
+    return;
+  }
+  process.stdout.write(`Updating ${current} -> ${latest}…\n`);
+  // npm install -g must run as a child process so it can update our own package files.
+  const r = spawnSync('npm', ['install', '-g', `${PKG_NAME}@latest`], { stdio: 'inherit' });
+  if (r.status !== 0) {
+    process.stderr.write('Update failed. Try running: npm install -g ' + PKG_NAME + '@latest\n');
+    process.exit(typeof r.status === 'number' ? r.status : 1);
+  }
+  process.stdout.write(`Updated to ${PKG_NAME}@${latest}\n`);
+}
+
 export async function main(argv: string[]): Promise<void> {
   const program = new Command();
   program
@@ -145,7 +195,12 @@ export async function main(argv: string[]): Promise<void> {
     .option('--trash', 'move to trash (default) instead of hard delete')
     .option('--hard', 'hard delete (irreversible) instead of trash')
     .option('--min-days <n>', 'only show entries idle >= n days', '0')
-    .action(async (scanRoot: string | undefined, opts: { trash?: boolean; hard?: boolean; minDays: string }) => {
+    .option('-u, --update', 'update node-modules-sweeper to the latest version from npm')
+    .action(async (scanRoot: string | undefined, opts: { trash?: boolean; hard?: boolean; minDays: string; update?: boolean }) => {
+      if (opts.update) {
+        await selfUpdate();
+        return;
+      }
       const minDays = parseInt(opts.minDays, 10) || 0;
       // Default to trash (recoverable). --hard opts into hard delete. --trash is a no-op kept for clarity.
       const mode: 'hard' | 'trash' = opts.hard ? 'hard' : 'trash';
