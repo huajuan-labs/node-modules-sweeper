@@ -1,6 +1,6 @@
 {
   "name": "node-modules-sweeper",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "description": "Scan and selectively clean node_modules directories — interactive ink TUI",
   "bin": {

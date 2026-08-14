@@ -2,7 +2,7 @@
 
 > Scan and selectively clean `node_modules` directories — an interactive terminal UI.
 
-`node_modules` folders eat disk fast. This tool recursively scans a directory, shows every `node_modules` it finds (size, idle time, path, a bar chart), and lets you pick which ones to delete — to trash (recoverable) or hard-delete (irreversible). Nothing is ever auto-deleted; **you** decide.
+`node_modules` folders eat disk fast. This tool recursively scans a directory, shows every `node_modules` it finds (size, idle time, path, a bar chart), and lets you pick which ones to delete — to trash (recoverable, the default) or hard-delete (irreversible). Nothing is ever auto-deleted; **you** decide.
 
 ## Install
 
@@ -45,8 +45,8 @@ nms [scan-root] [options]
 
 ## The flow
 
-1. **Pick a directory** — no argument opens a directory browser (start from cwd). `↑↓` move, `→` descend into a subdir, `←` go back, `enter` confirm & scan.
-2. **Select what to clean** — the `node_modules` list with size / idle-time / path / bar. `↑↓` browse, `space` toggle, `a` select-all, `s` cycle sort, `g`/`G` jump top/bottom.
+1. **Pick a directory** — no argument opens a directory browser (start from cwd). `↑↓` move, `→` descend into a subdir, `←` go back, `enter` scan the highlighted directory. Press `d` in the main TUI to come back here and pick another.
+2. **Select what to clean** — the `node_modules` list with size / idle-time / path / bar. `↑↓` browse, `space` toggle, `a` select-all, `s` cycle sort, `m` switch trash/hard-delete, `g`/`G` jump top/bottom.
 3. **Confirm & delete** — `enter` shows a second confirmation (count + size + mode); `enter` again executes. Failures are collected, not aborted.
 
 ### Keys
@@ -92,7 +92,7 @@ nms ~/my_code | sort -h
 git clone https://github.com/huajuan-labs/node-modules-sweeper.git
 cd node-modules-sweeper
 npm install
-npm test        # 76 tests, vitest
+npm test        # 79 tests, vitest
 npm run build   # tsc -> dist/
 node bin/nms.js .
 ```
