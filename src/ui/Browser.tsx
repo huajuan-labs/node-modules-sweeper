@@ -58,22 +58,17 @@ export const Browser: React.FC<BrowserProps> = ({ startDir, onSelect, onExit }) 
       if (parent) setDir(parent);
       return;
     }
-    if (key.rightArrow || key.return) {
+    if (key.rightArrow) {
+      // → : descend into the selected directory (keep browsing)
       const e = entries[cursor];
-      if (e && e.isDir) {
-        // Enter/right-arrow on a directory:
-        //  - rightArrow => descend into it
-        //  - return     => confirm scan of THIS directory (the one shown in header)
-        if (key.rightArrow) {
-          setDir(e.path);
-        } else {
-          // return: scan the current header dir
-          onSelect(dir);
-        }
-      } else if (key.return) {
-        // return on empty/non-dir: scan current header dir
-        onSelect(dir);
-      }
+      if (e && e.isDir) setDir(e.path);
+      return;
+    }
+    if (key.return) {
+      // enter: scan the directory currently under the cursor (the one you selected).
+      // If the list is empty, fall back to the directory shown in the header.
+      const e = entries[cursor];
+      onSelect(e && e.isDir ? e.path : dir);
       return;
     }
   });

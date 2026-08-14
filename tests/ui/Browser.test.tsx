@@ -72,26 +72,26 @@ describe('Browser', () => {
     expect(lastFrame() ?? '').toContain(`Browse: ${root}`);
   });
 
-  it('enter confirms the current directory via onSelect', async () => {
+  it('enter confirms the directory under the cursor via onSelect', async () => {
     const onSelect = vi.fn();
     const { stdin } = render(
       <Browser startDir={root} onSelect={onSelect} onExit={vi.fn()} />,
     );
     await flush();
-    stdin.write('\r'); await flush();
-    expect(onSelect).toHaveBeenCalledWith(root);
+    stdin.write('\r'); await flush(); // cursor on 'alpha' -> scan alpha
+    expect(onSelect).toHaveBeenCalledWith(subA);
   });
 
-  it('enter after descending confirms the subdirectory', async () => {
+  it('enter scans the cursor dir after descending', async () => {
     const onSelect = vi.fn();
     const { stdin } = render(
       <Browser startDir={root} onSelect={onSelect} onExit={vi.fn()} />,
     );
     await flush();
-    stdin.write(RIGHT); await flush(); // into alpha
+    stdin.write(RIGHT); await flush(); // into alpha (cursor now on 'deep')
     await flush();
-    stdin.write('\r'); await flush();  // confirm alpha
-    expect(onSelect).toHaveBeenCalledWith(subA);
+    stdin.write('\r'); await flush();  // scan deep
+    expect(onSelect).toHaveBeenCalledWith(subA1);
   });
 
   it('↓ moves the cursor to the next entry', async () => {
