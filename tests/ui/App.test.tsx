@@ -72,6 +72,31 @@ describe('App', () => {
     expect(lastFrame() ?? '').toContain('sort: size');
   });
 
+  it('m toggles delete mode (hard <-> trash)', async () => {
+    const { stdin, lastFrame } = render(
+      <App entries={baseEntries} mode="hard" onDelete={vi.fn()} onExit={vi.fn()} />,
+    );
+    expect(lastFrame() ?? '').toContain('hard-delete');
+    stdin.write('m'); await flush();
+    expect(lastFrame() ?? '').toContain('trash');
+    stdin.write('m'); await flush();
+    expect(lastFrame() ?? '').toContain('hard-delete');
+  });
+
+  it('default mode from props is shown and used on confirm', async () => {
+    const onDelete = vi.fn().mockResolvedValue({
+      ok: [{ entry: baseEntries[0], ok: true }], failed: [], freedBytes: 200,
+    });
+    const { stdin } = render(
+      <App entries={baseEntries} mode="trash" onDelete={onDelete} onExit={vi.fn()} />,
+    );
+    stdin.write(' '); await flush();
+    stdin.write('\r'); await flush();
+    stdin.write('\r'); await flush();
+    await flush();
+    expect(onDelete).toHaveBeenCalledWith([baseEntries[0]], 'trash');
+  });
+
   it('Enter with selection shows confirm dialog', async () => {
     const { stdin, lastFrame } = render(
       <App entries={baseEntries} mode="hard" onDelete={vi.fn()} onExit={vi.fn()} />,

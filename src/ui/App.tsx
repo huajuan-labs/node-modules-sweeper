@@ -35,7 +35,7 @@ function sortEntries(entries: Entry[], key: SortKey): Entry[] {
   return copy;
 }
 
-export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelete, onExit }) => {
+export const App: React.FC<AppProps> = ({ entries: initialEntries, mode: initialMode, onDelete, onExit }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [screen, setScreen] = useState<Screen>('list');
@@ -44,6 +44,9 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelet
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const [deleteSummary, setDeleteSummary] = useState<DeleteSummary | null>(null);
+  // Delete mode is switchable in-TUI (m key). Defaults to the mode passed in
+  // (which the CLI defaults to 'trash' so deletions are recoverable out of the box).
+  const [mode, setMode] = useState<'hard' | 'trash'>(initialMode);
 
   const sorted = sortEntries(entries, sortKey);
   const maxSize = Math.max(1, ...entries.map(e => e.sizeBytes ?? 0));
@@ -76,6 +79,7 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelet
     if (screen !== 'list') return;
     if (input === 'q' || (key.ctrl && input === 'c')) { safeExit(); return; }
     if (input === 's') { setSortKey(k => NEXT_SORT[k]); return; }
+    if (input === 'm') { setMode(prev => (prev === 'trash' ? 'hard' : 'trash')); return; }
     if (input === 'a') {
       setSelected(prev => {
         const allSelected = selectable.every(e => prev.has(e.absPath));
@@ -157,9 +161,10 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelet
   }
 
   // list screen
+  const modeColor = mode === 'trash' ? 'green' : 'red';
   return (
     <Box flexDirection="column">
-      <Text bold>nms — node-modules-sweeper — sort: {SORT_LABEL[sortKey]} (s to cycle)</Text>
+      <Text bold>nms — node-modules-sweeper — sort: {SORT_LABEL[sortKey]} (s) · mode: <Text color={modeColor}>{mode === 'trash' ? 'trash' : 'hard-delete'}</Text> (m)</Text>
       {needScroll && winStart > 0 && <Text dimColor>  ↑ {winStart} more above</Text>}
       {visible.map((e, i) => {
         const realIndex = winStart + i;
@@ -177,7 +182,7 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelet
         <Text dimColor>  ↓ {sorted.length - winEnd} more below</Text>
       )}
       <SummaryBar entries={sorted} selected={selected} />
-      <Text dimColor>↑↓ move · space select · a all · s sort · g/G top/bottom · enter delete · q quit</Text>
+      <Text dimColor>↑↓ move · space select · a all · s sort · m mode · g/G top/bottom · enter delete · q quit</Text>
     </Box>
   );
 };

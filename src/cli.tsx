@@ -131,11 +131,13 @@ export async function main(argv: string[]): Promise<void> {
   program
     .name('nms')
     .argument('[scan-root]', 'directory to scan')
-    .option('--trash', 'move to trash instead of hard delete')
+    .option('--trash', 'move to trash (default) instead of hard delete')
+    .option('--hard', 'hard delete (irreversible) instead of trash')
     .option('--min-days <n>', 'only show entries idle >= n days', '0')
-    .action(async (scanRoot: string | undefined, opts: { trash?: boolean; minDays: string }) => {
+    .action(async (scanRoot: string | undefined, opts: { trash?: boolean; hard?: boolean; minDays: string }) => {
       const minDays = parseInt(opts.minDays, 10) || 0;
-      const mode: 'hard' | 'trash' = opts.trash ? 'trash' : 'hard';
+      // Default to trash (recoverable). --hard opts into hard delete. --trash is a no-op kept for clarity.
+      const mode: 'hard' | 'trash' = opts.hard ? 'hard' : 'trash';
 
       // No scan-root given AND we're in a TTY: show the directory browser.
       if (scanRoot === undefined && process.stdout.isTTY) {

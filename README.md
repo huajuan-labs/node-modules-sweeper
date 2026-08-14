@@ -15,14 +15,15 @@ Requires Node.js ≥ 22.
 ## Usage
 
 ```bash
-# Interactive: opens a directory browser to pick what to scan
+# Interactive: opens a directory browser to pick what to scan.
+# Deletes go to the TRASH by default (recoverable).
 nms
 
 # Scan a specific directory directly
 nms ~/my_code
 
-# Move deleted node_modules to trash (recoverable) instead of hard-deleting
-nms ~/my_code --trash
+# Hard-delete instead of trash (irreversible)
+nms ~/my_code --hard
 
 # Only show node_modules idle for 90+ days
 nms ~/my_code --min-days 90
@@ -34,10 +35,13 @@ nms ~/my_code --min-days 90
 nms [scan-root] [options]
 
   scan-root        directory to scan (default: opens a directory browser)
-  --trash          move to system trash (default: hard delete)
+  --hard           hard delete (irreversible) — default is trash (recoverable)
+  --trash          force trash mode (default, kept for clarity)
   --min-days <n>   only show entries idle for >= n days
   -h, --help       show help
 ```
+
+> **Delete mode is also switchable inside the TUI** — press `m` to toggle between `trash` (green, recoverable) and `hard-delete` (red, irreversible). The current mode is shown in the header and used on the confirm screen.
 
 ## The flow
 
@@ -53,6 +57,7 @@ nms [scan-root] [options]
 | `space` | toggle selection (symlinked `node_modules` are protected — not selectable) |
 | `a` | select / deselect all |
 | `s` | cycle sort: size ↓ → idle ↓ → path ↑ |
+| `m` | toggle delete mode: trash ↔ hard-delete (shown in header; trash=green, hard=red) |
 | `g` / `G` | jump to top / bottom |
 | `enter` | confirm (list) / execute (confirm screen) |
 | `←` / `→` | in the browser: back / open subdir |
