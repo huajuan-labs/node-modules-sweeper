@@ -16,6 +16,12 @@ npm install -g node-modules-sweeper
 
 Requires Node.js ≥ 22.
 
+### Platform support
+
+- **macOS** — primary platform, fully tested.
+- **Linux** — works (same code paths as macOS; `du` + `trash` are cross-platform).
+- **Windows** — works (experimental): uses the built-in JS size calculator since `du` isn't available; `trash` uses the Windows Recycle Bin. Use **Windows Terminal / PowerShell 7+** — legacy `cmd.exe` may garble the Unicode UI glyphs. Note: pnpm junctions on Windows may report slightly inflated sizes (the tool never *deletes* a junction target, so it's safe — only the number may be off).
+
 ## Usage
 
 ```bash
