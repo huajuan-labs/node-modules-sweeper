@@ -129,7 +129,7 @@ async function runAndShow(scanRoot: string, minDays: number, mode: 'hard' | 'tra
 export async function main(argv: string[]): Promise<void> {
   const program = new Command();
   program
-    .name('clean-node-modules')
+    .name('nms')
     .argument('[scan-root]', 'directory to scan')
     .option('--trash', 'move to trash instead of hard delete')
     .option('--min-days <n>', 'only show entries idle >= n days', '0')

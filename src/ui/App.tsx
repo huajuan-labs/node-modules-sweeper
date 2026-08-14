@@ -159,7 +159,7 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode, onDelet
   // list screen
   return (
     <Box flexDirection="column">
-      <Text bold>clean-node-modules — sort: {SORT_LABEL[sortKey]} (s to cycle)</Text>
+      <Text bold>nms — node-modules-sweeper — sort: {SORT_LABEL[sortKey]} (s to cycle)</Text>
       {needScroll && winStart > 0 && <Text dimColor>  ↑ {winStart} more above</Text>}
       {visible.map((e, i) => {
         const realIndex = winStart + i;
