@@ -10,7 +10,6 @@ import { App } from './ui/App.js';
 import { Browser } from './ui/Browser.js';
 import type { Entry } from './types.js';
 import { resolve, isAbsolute } from 'node:path';
-import { homedir } from 'node:os';
 
 export interface RunScanResult {
   entries: Entry[];
@@ -62,8 +61,12 @@ function renderTable(entries: Entry[]): string {
 
 async function confirmWideRoot(root: string): Promise<boolean> {
   const abs = isAbsolute(root) ? root : resolve(root);
-  const home = homedir();
-  if (abs === home || abs === '/') {
+  // Only warn for an actual full-disk scan (/). $HOME is fine to scan — the
+  // ignore list (.git, Library/, *.app, hidden dirs) already filters the
+  // dangerous stuff, and deletion has its own confirmation. Blocking here on
+  // process.stdin also breaks the ink TUI (stdin is owned by ink), so we
+  // reserve the interactive y/N prompt only for `/`.
+  if (abs === '/') {
     process.stderr.write(
       `Warning: scanning ${abs} may find node_modules inside applications.\nContinue? [y/N] `,
     );
@@ -104,6 +107,10 @@ async function runAndShow(scanRoot: string, minDays: number, mode: 'hard' | 'tra
   }
 
   if (result.entries.length === 0) {
+    // In interactive (TTY) mode, signal "go back to browser" so the user can
+    // pick another directory instead of being dumped to the shell.
+    // In non-TTY mode, just report and exit.
+    if (process.stdout.isTTY) return true;
     process.stdout.write('No node_modules found.\n');
     return false;
   }

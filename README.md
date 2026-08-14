@@ -4,6 +4,10 @@
 
 `node_modules` folders eat disk fast. This tool recursively scans a directory, shows every `node_modules` it finds (size, idle time, path, a bar chart), and lets you pick which ones to delete — to trash (recoverable, the default) or hard-delete (irreversible). Nothing is ever auto-deleted; **you** decide.
 
+![directory browser](docs/screenshots/01.png)
+![main TUI](docs/screenshots/02.png)
+![confirm & delete](docs/screenshots/03.png)
+
 ## Install
 
 ```bash
