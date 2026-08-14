@@ -141,17 +141,18 @@ export async function main(argv: string[]): Promise<void> {
 
       // No scan-root given AND we're in a TTY: show the directory browser.
       if (scanRoot === undefined && process.stdout.isTTY) {
+        let chosen: string | null = null;
         const { unmount, waitUntilExit } = render(
           <Browser
-            onSelect={(d) => {
-              unmount();
-              void runAndShow(d, minDays, mode);
-            }}
+            onSelect={(d) => { chosen = d; unmount(); }}
             onExit={() => unmount()}
           />,
           { exitOnCtrlC: false },
         );
         await waitUntilExit();
+        // If the user quit the browser (q/Ctrl+C) without choosing, exit.
+        if (!chosen) return;
+        await runAndShow(chosen, minDays, mode);
         return;
       }
 
