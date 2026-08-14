@@ -14,6 +14,8 @@ export interface AppProps {
   /** Delete the given entries; resolves a summary. */
   onDelete: (entries: Entry[], mode: 'hard' | 'trash') => Promise<DeleteSummary>;
   onExit: () => void;
+  /** Called when the user wants to go back and pick a different directory. */
+  onChangeDir?: () => void;
 }
 
 const SORT_LABEL: Record<SortKey, string> = { size: 'size', idle: 'idle', path: 'path' };
@@ -35,7 +37,7 @@ function sortEntries(entries: Entry[], key: SortKey): Entry[] {
   return copy;
 }
 
-export const App: React.FC<AppProps> = ({ entries: initialEntries, mode: initialMode, onDelete, onExit }) => {
+export const App: React.FC<AppProps> = ({ entries: initialEntries, mode: initialMode, onDelete, onExit, onChangeDir }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [screen, setScreen] = useState<Screen>('list');
@@ -78,6 +80,7 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode: initial
     if (screen === 'result') { setScreen('list'); return; }
     if (screen !== 'list') return;
     if (input === 'q' || (key.ctrl && input === 'c')) { safeExit(); return; }
+    if (input === 'd' && onChangeDir) { onChangeDir(); return; } // back to directory browser
     if (input === 's') { setSortKey(k => NEXT_SORT[k]); return; }
     if (input === 'm') { setMode(prev => (prev === 'trash' ? 'hard' : 'trash')); return; }
     if (input === 'a') {
@@ -182,7 +185,7 @@ export const App: React.FC<AppProps> = ({ entries: initialEntries, mode: initial
         <Text dimColor>  ↓ {sorted.length - winEnd} more below</Text>
       )}
       <SummaryBar entries={sorted} selected={selected} />
-      <Text dimColor>↑↓ move · space select · a all · s sort · m mode · g/G top/bottom · enter delete · q quit</Text>
+      <Text dimColor>↑↓ move · space select · a all · s sort · m mode · g/G top/bottom · enter delete{onChangeDir ? ' · d change dir' : ''} · q quit</Text>
     </Box>
   );
 };

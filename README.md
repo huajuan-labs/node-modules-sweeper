@@ -58,6 +58,7 @@ nms [scan-root] [options]
 | `a` | select / deselect all |
 | `s` | cycle sort: size ↓ → idle ↓ → path ↑ |
 | `m` | toggle delete mode: trash ↔ hard-delete (shown in header; trash=green, hard=red) |
+| `d` | go back to the directory browser (re-pick what to scan) |
 | `g` / `G` | jump to top / bottom |
 | `enter` | confirm (list) / execute (confirm screen) |
 | `←` / `→` | in the browser: back / open subdir |

@@ -78,8 +78,9 @@ async function confirmWideRoot(root: string): Promise<boolean> {
   return true;
 }
 
-/** Run the scan pipeline + render the results (TUI or table). */
-async function runAndShow(scanRoot: string, minDays: number, mode: 'hard' | 'trash'): Promise<void> {
+/** Run the scan pipeline + render the results (TUI or table).
+ *  Returns true if the user asked to change directory (pressed 'd'), false otherwise. */
+async function runAndShow(scanRoot: string, minDays: number, mode: 'hard' | 'trash'): Promise<boolean> {
   if (!(await confirmWideRoot(scanRoot))) {
     process.exit(0);
   }
@@ -104,26 +105,29 @@ async function runAndShow(scanRoot: string, minDays: number, mode: 'hard' | 'tra
 
   if (result.entries.length === 0) {
     process.stdout.write('No node_modules found.\n');
-    return;
+    return false;
   }
 
-  // Non-TTY: table only, no deletion.
+  // Non-TTY: table only, no deletion, no dir change.
   if (!process.stdout.isTTY) {
     process.stdout.write(renderTable(result.entries) + '\n');
-    return;
+    return false;
   }
 
-  // TTY: ink TUI.
+  // TTY: ink TUI. 'd' (onChangeDir) -> return true so the caller re-opens the browser.
+  let changeDir = false;
   const { unmount, waitUntilExit } = render(
     <App
       entries={result.entries}
       mode={mode}
       onDelete={async (toDelete, m) => deleteEntries(toDelete, { mode: m })}
       onExit={() => unmount()}
+      onChangeDir={() => { changeDir = true; unmount(); }}
     />,
     { exitOnCtrlC: false },
   );
   await waitUntilExit();
+  return changeDir;
 }
 
 export async function main(argv: string[]): Promise<void> {
@@ -139,21 +143,27 @@ export async function main(argv: string[]): Promise<void> {
       // Default to trash (recoverable). --hard opts into hard delete. --trash is a no-op kept for clarity.
       const mode: 'hard' | 'trash' = opts.hard ? 'hard' : 'trash';
 
-      // No scan-root given AND we're in a TTY: show the directory browser.
+      // No scan-root given AND we're in a TTY: show the directory browser,
+      // then scan; the user can press 'd' in the main TUI to come back here.
       if (scanRoot === undefined && process.stdout.isTTY) {
-        let chosen: string | null = null;
-        const { unmount, waitUntilExit } = render(
-          <Browser
-            onSelect={(d) => { chosen = d; unmount(); }}
-            onExit={() => unmount()}
-          />,
-          { exitOnCtrlC: false },
-        );
-        await waitUntilExit();
-        // If the user quit the browser (q/Ctrl+C) without choosing, exit.
-        if (!chosen) return;
-        await runAndShow(chosen, minDays, mode);
-        return;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          let chosen: string | null = null;
+          const { unmount: unmountBrowser, waitUntilExit: waitBrowser } = render(
+            <Browser
+              onSelect={(d) => { chosen = d; unmountBrowser(); }}
+              onExit={() => unmountBrowser()}
+            />,
+            { exitOnCtrlC: false },
+          );
+          await waitBrowser();
+          if (!chosen) return; // quit the browser without choosing -> exit
+
+          // Scan + main TUI. changeDir=true means the user pressed 'd' to re-pick.
+          const changeDir = await runAndShow(chosen, minDays, mode);
+          if (!changeDir) return; // exited the main TUI normally -> done
+          // else loop back to the browser
+        }
       }
 
       const root = scanRoot ?? '.';

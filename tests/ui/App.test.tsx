@@ -141,6 +141,15 @@ describe('App', () => {
     expect(onExit).toHaveBeenCalled();
   });
 
+  it('d triggers onChangeDir (when provided)', async () => {
+    const onChangeDir = vi.fn();
+    const { stdin } = render(
+      <App entries={baseEntries} mode="hard" onDelete={vi.fn()} onExit={vi.fn()} onChangeDir={onChangeDir} />,
+    );
+    stdin.write('d'); await flush();
+    expect(onChangeDir).toHaveBeenCalled();
+  });
+
   it('G jumps to bottom; g jumps back to top', async () => {
     // 40 entries — exceeds a 24-row terminal so scrolling/viewport kicks in.
     const many: Entry[] = Array.from({ length: 40 }, (_, i) =>
